@@ -1,0 +1,20 @@
+Sample Text Document for Testing
+
+This is a test document created to verify that the AI chatbot can properly read and understand text documents in the ViewMaterial page.
+
+Key Information:
+- Document Type: Plain text (.txt)
+- Purpose: Testing AI chatbot functionality
+- Content: Mixed content including lists and paragraphs
+- Language: English
+
+Sample Questions to Test:
+1. What is the purpose of this document?
+2. What document type is this?
+3. Can you summarize the key information?
+4. What are the sample questions listed?
+
+Additional Content:
+The AI chatbot should be able to answer questions about this content when the document is opened in ViewMaterial page. The "Doc Mode" should extract this text and allow users to ask questions about the specific content.
+
+This document contains approximately 150 words to ensure it passes the minimum length threshold for document mode activation.
