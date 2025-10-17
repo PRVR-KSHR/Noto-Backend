@@ -51,6 +51,11 @@ if (NODE_ENV === 'development' && !corsAllowlist.includes('http://localhost:5173
   corsAllowlist.push('http://localhost:5173');
 }
 
+// Add Vercel production URL
+if (!corsAllowlist.includes('https://noto-frontend-gfmo.vercel.app')) {
+  corsAllowlist.push('https://noto-frontend-gfmo.vercel.app');
+}
+
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow server-to-server (no origin) and allowlisted origins
