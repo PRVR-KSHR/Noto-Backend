@@ -40,26 +40,47 @@ app.use(helmet({
 }));
 
 // CORS configuration - env-driven allowlist
-const parseOrigins = (value) => (value || '')
-  .split(',')
-  .map(o => o.trim())
-  .filter(Boolean);
+const parseOrigins = (value) => {
+  if (!value) return [];
+  
+  // Support both comma-separated and || separated values
+  const separator = value.includes('||') ? '||' : ',';
+  
+  return value
+    .split(separator)
+    .map(o => o.trim())
+    .filter(Boolean)
+    .map(url => {
+      // Ensure URLs have proper protocol
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        return `https://${url}`;
+      }
+      return url;
+    });
+};
 
-const corsAllowlist = parseOrigins(process.env.CORS_ORIGINS) || [];
-if (process.env.FRONTEND_URL) corsAllowlist.push(process.env.FRONTEND_URL);
+const corsAllowlist = [
+  ...parseOrigins(process.env.CORS_ORIGINS),
+  ...parseOrigins(process.env.FRONTEND_URL)
+];
+
+// Add development localhost if not already included
 if (NODE_ENV === 'development' && !corsAllowlist.includes('http://localhost:5173')) {
   corsAllowlist.push('http://localhost:5173');
 }
 
-// Add Vercel production URL
-if (!corsAllowlist.includes('https://noto-frontend-gfmo.vercel.app')) {
-  corsAllowlist.push('https://noto-frontend-gfmo.vercel.app');
-}
+// Log CORS configuration for debugging
+console.log('🔒 CORS Configuration:');
+console.log('   Allowed origins:', corsAllowlist);
+console.log('   Environment:', NODE_ENV);
 
 const corsOptions = {
   origin: (origin, callback) => {
     // Allow server-to-server (no origin) and allowlisted origins
     if (!origin || corsAllowlist.includes(origin)) return callback(null, true);
+    
+    // Log rejected origins for debugging
+    console.warn(`⚠️  CORS rejected origin: ${origin}`);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
