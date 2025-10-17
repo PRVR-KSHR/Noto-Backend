@@ -101,8 +101,22 @@ const uploadToCloudinary = async (file, folder) => {
             size: `${(result.bytes / 1024 / 1024).toFixed(2)} MB`
           });
 
+          // ✅ Generate optimized URLs for different use cases
+          const baseUrl = result.secure_url;
+          const publicId = result.public_id;
+          
+          // Generate thumbnail URL (for preview/listing pages) - significantly reduces bandwidth
+          const thumbnailUrl = cloudinary.url(publicId, {
+            resource_type: 'raw',
+            format: 'jpg', // Convert first page to JPG
+            page: 1, // Only first page for preview
+            quality: 'auto:low', // Automatic quality optimization
+            fetch_format: 'auto', // Automatic format selection
+          });
+
           resolve({
-            fileUrl: result.secure_url,
+            fileUrl: baseUrl, // Original file URL (for download)
+            thumbnailUrl: thumbnailUrl, // Optimized preview URL
             publicId: result.public_id,
             provider: 'cloudinary'
           });

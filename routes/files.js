@@ -103,7 +103,7 @@ router.get('/:fileId', optionalAuth, asyncHandler(async (req, res) => {
 
     res.json({
       success: true,
-      data: file
+      file: file
     });
   } catch (error) {
     // Will be handled by error middleware

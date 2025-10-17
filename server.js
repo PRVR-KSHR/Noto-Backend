@@ -11,6 +11,7 @@ import adminRoutes from './routes/admin.js';
 import donationRoutes from './routes/donations.js';
 import eventRoutes from './routes/events.js';
 import messageRoutes from './routes/messages.js';
+import ocrRoutes from './routes/ocr.js'; // NEW: OCR status route
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -90,7 +91,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes); 
 app.use('/api/donations', donationRoutes); 
 app.use('/api/events', eventRoutes); 
-app.use('/api/messages', messageRoutes); 
+app.use('/api/messages', messageRoutes);
+app.use('/api/ocr', ocrRoutes); // NEW: OCR status endpoint 
 
 // Health check
 app.get('/api/health', (req, res) => {

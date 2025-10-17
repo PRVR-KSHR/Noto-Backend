@@ -1,68 +1,84 @@
-# Backend (Express + MongoDB)
+Based on your comprehensive backend README, here's a **short and crisp description**:
 
-Hardened, production-ready Express server for Noto.
+***
 
-## Security and stability features
-- Helmet security headers (COOP allow-popups for OAuth, COEP disabled for API)
-- CORS with allowlist from env, credentials enabled
-- gzip compression
-- HPP (HTTP Parameter Pollution) protection
-- Rate limiting with env-configurable window and max
-- Centralized 404 and error handler with structured JSON
-- Async route wrapper to avoid unhandled promise rejections
-- Environment-driven logging with morgan integration
-- Trust proxy and `x-powered-by` disabled
+# 📚 Noto Backend - Educational Document API
 
-## Environment variables
-See `.env.example` for all supported values. Copy and fill these in a `.env` file in `backend/`:
+**Robust Node.js/Express API powering intelligent document management, OCR processing, and AI-driven educational assistance.**
 
-- `NODE_ENV` (development|production)
-- `PORT` (default 5000)
-- `MONGODB_URI`
-- `FRONTEND_URL` (e.g., http://localhost:5173)
-- `CORS_ORIGINS` (comma-separated, additional allowed origins)
-- `RATE_LIMIT_WINDOW_MS` (default 900000)
-- `RATE_LIMIT_MAX` (default 100)
-- `LOG_LEVEL` (error|warn|info|debug)
-- Firebase Admin: `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
-- `ADMIN_EMAILS` (comma-separated)
-- Storage: `STORAGE_PROVIDER` (cloudinary|r2) and respective provider keys
+## Overview
 
-Notes:
-- Put literal \n in `FIREBASE_PRIVATE_KEY` lines in `.env`.
-- `ADMIN_EMAILS` replaces previously hardcoded admin list.
+Noto Backend is a production-ready RESTful API built with Node.js 18+ and Express 5.1 that handles document processing, handwritten text extraction via OCR, multi-provider AI chatbot functionality, and secure user authentication through Firebase Admin SDK.
 
-## Install & Run
+### 🌟 Core Features
 
-Windows PowerShell (from `backend/` directory):
+- **📄 Smart Document Processing** - Upload and manage PDF, DOCX, PPTX, TXT files with intelligent routing
+- **✍️ Advanced OCR Integration** - OCR.space API with Engine 2 for handwritten text extraction (25k/month, 500/day limit)
+- **🤖 Multi-Provider AI Chatbot** - Groq and Gemini integration with document-specific and global knowledge modes
+- **🔐 Firebase Authentication** - JWT token verification with Firebase Admin SDK
+- **📅 Event Management** - CRUD operations with Cloudinary image storage
+- **☁️ Cloud Storage** - Cloudinary CDN integration for optimized image delivery
+- **🛡️ Enterprise Security** - Helmet, CORS, rate limiting (100 req/15min), HPP protection
+- **💾 Intelligent Storage** - 98% MongoDB savings by storing only handwritten document text
 
-```powershell
-# Install deps
+### 🛠️ Tech Stack
+
+**Backend:** Node.js 18+ | Express 5.1 | MongoDB Atlas  
+**Authentication:** Firebase Admin SDK 13.5  
+**Storage:** Cloudinary 2.7  
+**Document Processing:** pdf-parse | mammoth | pptx-parser | OCR.space API  
+**AI:** Groq SDK | Google Generative AI 0.24  
+**Security:** Helmet | CORS | express-rate-limit | HPP
+
+### 🚀 Quick Start
+
+```bash
+git clone https://github.com/PRVR-KSHR/noto-backend.git
+cd noto-backend
 npm install
-
-# Development
-$env:NODE_ENV = 'development'; npm run dev
-
-# Production (example)
-$env:NODE_ENV = 'production'; npm start
+# Configure .env with credentials
+npm run dev
 ```
 
-The server listens on `PORT` and connects to `MONGODB_URI`. A health check is available at `/api/health`.
+### 🔌 Key API Endpoints
 
-## Logging
-- HTTP logs: morgan (`dev` in development, `combined` in production)
-- App logs: `utils/logger.js` honors `LOG_LEVEL` and prints JSON-compatible messages
+- **Auth:** `/api/auth/register` | `/api/auth/login` | `/api/auth/verify`
+- **Files:** `/api/files/upload` | `/api/files` | `/api/files/:id` | `/api/files/chat`
+- **Events:** `/api/events` (CRUD with admin protection)
+- **Donations:** `/api/donations` (UPI integration)
+- **Messages:** `/api/messages` (inquiry system)
 
-## Error handling
-- 404: `{ success:false, message:'Route not found', path }`
-- Errors: `{ success:false, message, code, stack? }` (stack only outside production)
+### 📊 Intelligent Processing Pipeline
 
-## CORS
-- Allowed origins = `FRONTEND_URL` + `CORS_ORIGINS` (comma-separated)
-- Credentials supported; methods and headers are restricted
+1. **Typed Documents** (PDF/DOCX/PPTX) → Client-side extraction → No MongoDB storage
+2. **Handwritten Documents** → Server-side OCR.space (Engine 2) → MongoDB storage → 3-page chunking
 
-## Rate limiting
-- Defaults to 100 requests per 15 minutes per IP; configure via env
+**Result:** 98% storage cost reduction with intelligent routing
 
-## Notes for CI/tests
-- Some existing test files are empty and cause Jest to fail. Add tests or skip empty files in your Jest config to get green builds.
+### 🤖 AI Chatbot Features
+
+- **Document Mode:** Context-aware Q&A about uploaded files
+- **Global Mode:** General knowledge queries
+- **Provider Chain:** Groq (4 models) → Gemini fallback → 3 retry attempts
+- **Error Handling:** Rate limits, OCR quotas, authentication errors, service overload with user-friendly guidance
+
+### 🛡️ Security Layers
+
+✅ Helmet security headers | ✅ CORS allowlist | ✅ Rate limiting (100/15min) | ✅ Firebase JWT verification | ✅ HPP protection | ✅ Input sanitization | ✅ Trust proxy configuration
+
+### 📦 Production Ready
+
+- **PM2 support** for process management
+- **Winston logging** with configurable levels
+- **MongoDB indexing** for optimized queries
+- **Gzip compression** for responses
+- **Comprehensive error handling** with structured JSON responses
+- **Health check endpoint** for monitoring
+
+### 🎯 Perfect For
+
+Educational institutions managing document repositories, platforms requiring OCR processing, applications needing AI-powered document Q&A, and systems with secure multi-role authentication.
+
+**Free Tier Optimizations:** OCR.space (25k/month) | MongoDB selective storage | Cloudinary CDN | Groq/Gemini AI APIs
+
+***

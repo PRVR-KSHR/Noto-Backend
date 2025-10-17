@@ -4,6 +4,7 @@ import { uploadFile, deleteFile } from '../services/storageService.js';
 import multer from 'multer';
 import path from 'path'; // ✅ NEW: Added path import
 import fs from 'fs'; // ✅ NEW: Added fs import  
+import axios from 'axios'; // ✅ NEW: Added axios for file download
 import { TextExtractionService } from '../services/textExtraction.js'; // ✅ NEW: Added text extraction service
 
 // ✅ UPDATED: Configure multer for disk storage (was memory storage)
@@ -91,10 +92,24 @@ export const getFileWithText = async (req, res) => {
       // Fallback: try to extract from URL (legacy files)
       console.log('⚠️ No stored text found, attempting URL extraction...');
       try {
-        extractedText = await TextExtractionService.extractTextFromFile(
-          file.fileUrl,
+        // ✅ FIXED: Pass documentType to extraction service
+        const documentType = file.metadata?.documentType || 'typed';
+        console.log(`📖 Extracting text with documentType: ${documentType}`);
+        
+        const response = await axios.get(file.fileUrl, {
+          responseType: 'arraybuffer',
+          timeout: 30000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+        
+        const buffer = Buffer.from(response.data);
+        extractedText = await TextExtractionService.extractTextFromBuffer(
+          buffer,
           file.fileName,
-          file.fileType
+          file.fileType,
+          documentType // ✅ CRITICAL: Pass document type for handwritten OCR
         );
         console.log('✅ Text extracted successfully, length:', extractedText.length);
       } catch (extractError) {
@@ -152,7 +167,8 @@ export const uploadMaterial = async (req, res) => {
       collegeName,
       professorName,
       semester,
-      year
+      year,
+      documentType = 'typed' // NEW: Document type for AI model selection
     } = req.body;
 
     // Validate required fields
@@ -212,20 +228,42 @@ export const uploadMaterial = async (req, res) => {
     const uploadResult = await uploadFile(req.file, categoryFolder);
     console.log('✅ File uploaded successfully:', uploadResult.fileUrl);
 
-    // ✅ NEW: Extract text content during upload (more reliable than downloading later)
-    let extractedText = '';
-    try {
-      console.log('📖 Extracting text during upload from temp file...');
-      const fileBuffer = fs.readFileSync(req.file.path);
-      extractedText = await TextExtractionService.extractTextFromBuffer(
-        fileBuffer,
-        req.file.originalname,
-        req.file.mimetype
-      );
-      console.log('✅ Text extracted during upload, length:', extractedText.length);
-    } catch (extractError) {
-      console.error('❌ Text extraction during upload failed:', extractError);
-      extractedText = `EXTRACTION_FAILED: ${extractError.message}`;
+    // ✅ OPTIMIZED: Only extract and store text for HANDWRITTEN documents
+    // Typed documents will use client-side extraction to save MongoDB space
+    let extractedText = null;
+    let extractionStatus = 'not-required'; // Default for typed documents
+    let extractionError = null;
+
+    if (documentType === 'handwritten') {
+      // Only extract text for handwritten documents (needs server-side OCR)
+      try {
+        console.log('�️ Handwritten document detected - starting OCR extraction...');
+        const fileBuffer = await fs.promises.readFile(tempFilePath);
+        
+        extractedText = await TextExtractionService.extractTextFromBuffer(
+          fileBuffer,
+          req.file.originalname,
+          req.file.mimetype,
+          documentType
+        );
+        
+        extractionStatus = 'success';
+        console.log('✅ OCR extraction completed:', {
+          length: extractedText?.length || 0,
+          sizeKB: (extractedText?.length / 1024).toFixed(2),
+          preview: extractedText?.substring(0, 100) + '...'
+        });
+      } catch (extractError) {
+        console.error('❌ OCR extraction failed:', extractError.message);
+        extractionStatus = 'failed';
+        extractionError = extractError.message;
+        extractedText = `OCR extraction failed: ${extractError.message}`;
+      }
+    } else {
+      // Typed documents: Don't store text in MongoDB (save space)
+      console.log('⚡ Typed document - text extraction will be handled client-side (MongoDB space saved)');
+      extractionStatus = 'not-required';
+      extractedText = null; // Don't store text for typed documents
     }
 
     // Create comprehensive file record
@@ -235,7 +273,11 @@ export const uploadMaterial = async (req, res) => {
       fileUrl: uploadResult.fileUrl,
       fileType: req.file.mimetype,
       fileSize: req.file.size,
-      extractedText: extractedText, // ✅ NEW: Store extracted text
+      
+      // ✅ OPTIMIZED: Only store text for handwritten documents
+      extractedText: extractedText, // null for typed, OCR text for handwritten
+      extractionStatus: extractionStatus, // 'not-required' for typed, 'success'/'failed' for handwritten
+      extractionError: extractionError,
       storage: {
         provider: uploadResult.provider,
         publicId: uploadResult.publicId,
@@ -253,7 +295,8 @@ export const uploadMaterial = async (req, res) => {
         year: parseInt(year),
         course: course.trim(),
         originalSize: req.file.size,
-        uploadFolder: categoryFolder
+        uploadFolder: categoryFolder,
+        documentType: documentType || 'typed' // NEW: Store document type for AI model selection
       },
       // Enhanced tags for better searchability
       tags: [

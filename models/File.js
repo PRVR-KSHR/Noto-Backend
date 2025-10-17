@@ -6,7 +6,15 @@ const fileSchema = new mongoose.Schema({
   fileUrl: { type: String, required: true },
   fileType: { type: String, required: true },
   fileSize: { type: Number, required: true },
-  extractedText: { type: String, default: '' }, // ✅ NEW: Store extracted text content
+  
+  // ✅ NEW: Store extracted text for chatbot (cached for performance)
+  extractedText: { type: String, default: null },
+  extractionStatus: { 
+    type: String, 
+    enum: ['pending', 'success', 'failed', 'not-required'], 
+    default: 'pending' 
+  },
+  extractionError: { type: String, default: null },
   
   // Storage metadata
   storage: {
@@ -27,7 +35,8 @@ const fileSchema = new mongoose.Schema({
     collegeName: { type: String, required: true, trim: true },
     professorName: { type: String, trim: true },
     year: { type: Number, required: true },
-    course: { type: String, required: true, trim: true }
+    course: { type: String, required: true, trim: true },
+    documentType: { type: String, enum: ['typed', 'handwritten'], default: 'typed' } // NEW: Document type for AI selection
   },
   
   stats: {

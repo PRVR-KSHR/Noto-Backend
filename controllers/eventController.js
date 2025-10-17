@@ -190,47 +190,55 @@ export const deleteEvent = async (req, res) => {
       });
     }
 
-    console.log('🗑️ DELETION DEBUG - Event found:', {
+    console.log('🗑️ Event found for deletion:', {
       id: event._id,
-      name: event.name,
+      description: event.description,
       imageUrl: event.imageUrl,
       imagePublicId: event.imagePublicId,
       imagePublicIdType: typeof event.imagePublicId,
-      imagePublicIdLength: event.imagePublicId?.length,
-      isValidDeleteUrl: event.imagePublicId?.startsWith('https://ibb.co/')
+      isImageBBUrl: event.imagePublicId?.startsWith('https://')
     });
 
-    // Delete image from ImageBB first (if exists)
+    // Delete image from storage provider (ImageBB or Cloudinary)
     if (event.imagePublicId) {
       try {
-        console.log('🖼️ DELETION DEBUG - Attempting to delete image from ImageBB...');
-        console.log('🔗 Delete URL being used:', event.imagePublicId);
+        console.log('🖼️ Attempting to delete image from storage...');
+        console.log('🔗 Image identifier:', event.imagePublicId);
         
-        const deleteResult = await deleteFile(event.imagePublicId);
-        console.log('✅ DELETION DEBUG - Image deletion result:', deleteResult);
+        // Determine provider by checking imagePublicId format
+        if (event.imagePublicId?.startsWith('https://')) {
+          // ImageBB delete URL format: https://ibb.co/xxx/yyy
+          console.log('📸 Deleting from ImageBB...');
+          await deleteImageBB(event.imagePublicId);
+        } else {
+          // Cloudinary public_id format: noto/events/timestamp_uuid.ext
+          console.log('☁️ Deleting from Cloudinary...');
+          await deleteStorage(event.imagePublicId);
+        }
+        
+        console.log('✅ Image deleted successfully from storage');
       } catch (imageError) {
-        console.error('❌ DELETION DEBUG - Image deletion failed:', {
+        console.error('❌ Image deletion failed:', {
           error: imageError.message,
-          stack: imageError.stack,
-          deleteUrl: event.imagePublicId
+          imagePublicId: event.imagePublicId
         });
         // Continue with event deletion even if image deletion fails
         // This prevents events from becoming "undeletable" due to image issues
       }
     } else {
-      console.log('ℹ️ DELETION DEBUG - No image to delete (imagePublicId is empty)');
+      console.log('ℹ️ No image to delete (imagePublicId is empty)');
     }
     
     // Delete event from database
     await Event.findByIdAndDelete(eventId);
-    console.log('✅ DELETION DEBUG - Event deleted from database successfully');
+    console.log('✅ Event deleted from database successfully');
 
     res.json({
       success: true,
       message: 'Event and associated image deleted successfully'
     });
   } catch (error) {
-    console.error('❌ DELETION DEBUG - Error deleting event:', {
+    console.error('❌ Error deleting event:', {
       error: error.message,
       stack: error.stack
     });

@@ -1,10 +1,27 @@
 import axios from 'axios';
+import ocrService from './ocrService.js';
 
 export class TextExtractionService {
-  static async extractTextFromBuffer(buffer, fileName, mimeType) {
+  /**
+   * Main extraction method with document type detection
+   * @param {Buffer} buffer - File buffer
+   * @param {String} fileName - Original file name
+   * @param {String} mimeType - MIME type
+   * @param {String} documentType - "typed" or "handwritten"
+   */
+  static async extractTextFromBuffer(buffer, fileName, mimeType, documentType = 'typed') {
     try {
-      console.log('📖 Extracting text from buffer:', fileName, 'Type:', mimeType);
+      console.log('📖 Extracting text from buffer:', fileName, 'Type:', mimeType, 'Document Type:', documentType);
       console.log('📦 Buffer size:', buffer.length, 'bytes');
+      
+      // 🖊️ NEW: Route handwritten documents to OCR.space
+      if (documentType === 'handwritten') {
+        console.log('🖊️ Handwritten document detected, using OCR.space...');
+        return await ocrService.extractTextFromHandwritten(buffer, fileName, mimeType);
+      }
+
+      // ⌨️ Continue with existing extraction for typed documents
+      console.log('⌨️ Typed document detected, using standard extraction...');
       
       switch (mimeType) {
         case 'application/pdf':
