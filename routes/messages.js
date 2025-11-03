@@ -7,7 +7,8 @@ import {
   getAllMessages,
   updateMessageStatus,
   markAsRead,
-  deleteMessage
+  deleteMessage,
+  replyToMessage
 } from '../controllers/messageController.js';
 
 const router = express.Router();
@@ -19,6 +20,8 @@ router.patch('/:messageId/read', authenticateUser, markAsRead);
 router.delete('/:messageId', authenticateUser, deleteMessage); // User can delete their own messages
 
 // Admin routes (require admin authentication)
+// Specific routes must come BEFORE generic :id routes
+router.post('/admin/:messageId/reply', requireAdmin, replyToMessage); // NEW: Admin reply endpoint
 router.get('/admin/all', requireAdmin, getAllMessages);
 router.patch('/admin/:messageId/status', requireAdmin, updateMessageStatus);
 router.delete('/admin/:messageId', requireAdmin, deleteMessage);

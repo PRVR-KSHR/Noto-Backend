@@ -275,3 +275,54 @@ export const deleteMessage = async (req, res) => {
     });
   }
 };
+
+// NEW: Admin reply to message
+export const replyToMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { reply } = req.body;
+    const adminEmail = req.user?.email;
+
+    if (!reply || !reply.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reply text is required'
+      });
+    }
+
+    const message = await Message.findById(messageId);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message not found'
+      });
+    }
+
+    // Update message with admin response
+    message.adminResponse = reply.trim();
+    message.respondedBy = adminEmail;
+    message.respondedAt = new Date();
+    message.status = 'resolved'; // Mark as resolved once admin replies
+
+    await message.save();
+
+    console.log('💬 Admin replied to message:', {
+      messageId: message._id,
+      from: message.userName,
+      repliedBy: adminEmail,
+      respondedAt: message.respondedAt
+    });
+
+    res.json({
+      success: true,
+      message: 'Reply sent successfully',
+      data: message
+    });
+  } catch (error) {
+    console.error('Error replying to message:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send reply'
+    });
+  }
+};
