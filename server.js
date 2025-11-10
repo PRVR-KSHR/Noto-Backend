@@ -12,6 +12,8 @@ import donationRoutes from './routes/donations.js';
 import eventRoutes from './routes/events.js';
 import messageRoutes from './routes/messages.js';
 import ocrRoutes from './routes/ocr.js'; // NEW: OCR status route
+import professorRoutes from './routes/professors.js'; // NEW: Professor validator routes
+import materialManagementRoutes from './routes/materialManagement.js'; // NEW: Material management routes
 
 // Import routes
 import authRoutes from './routes/auth.js';
@@ -68,6 +70,9 @@ const corsAllowlist = [
 if (NODE_ENV === 'development' && !corsAllowlist.includes('http://localhost:5173')) {
   corsAllowlist.push('http://localhost:5173');
 }
+if (NODE_ENV === 'development' && !corsAllowlist.includes('http://localhost:5174')) {
+  corsAllowlist.push('http://localhost:5174');
+}
 
 // Log CORS configuration for debugging
 console.log('🔒 CORS Configuration:');
@@ -118,7 +123,9 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/donations', donationRoutes); 
 app.use('/api/events', eventRoutes); 
 app.use('/api/messages', messageRoutes);
-app.use('/api/ocr', ocrRoutes); // NEW: OCR status endpoint 
+app.use('/api/ocr', ocrRoutes); // NEW: OCR status endpoint
+app.use('/api/professors', professorRoutes); // NEW: Professor validator endpoints
+app.use('/api/materials', materialManagementRoutes); // NEW: Material management endpoints
 
 // Health check
 app.get('/api/health', (req, res) => {

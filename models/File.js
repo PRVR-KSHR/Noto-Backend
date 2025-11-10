@@ -60,10 +60,34 @@ const fileSchema = new mongoose.Schema({
       enum: ['pending', 'verified', 'rejected'], 
       default: 'pending' 
     },
-    verifiedBy: { type: String }, // Admin UID who verified/rejected
+    verifiedBy: { type: String }, // Admin UID or system who verified
     verifiedAt: { type: Date },
-    rejectionReason: { type: String, trim: true } // Reason for rejection
+    rejectionReason: { type: String, trim: true }, // Reason for rejection
+    rejectedBy: { type: String }, // Who rejected (admin or professor_validators)
+    rejectedAt: { type: Date }, // When it was rejected
+    adminVerified: { type: Boolean, default: false },       // ✅ NEW: Flag for admin verification
+    professorVerified: { type: Boolean, default: false }    // ✅ NEW: Flag for professor verification
   },
+  
+  // NEW: Tagged professors for verification
+  taggedProfessors: [{
+    professorId: { type: mongoose.Schema.Types.ObjectId, ref: 'ProfessorValidator' },
+    professorName: { type: String },
+    collegeName: { type: String },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    },
+    verifiedAt: { type: Date },
+    feedback: { type: String }
+  }],
+  
+  // NEW: Material management
+  isHidden: { type: Boolean, default: false },
+  hiddenAt: { type: Date },
+  hiddenBy: { type: String }, // Admin UID who hid it
+  hideReason: { type: String }, // Reason for hiding material
   
   tags: [{ type: String, trim: true }],
   
