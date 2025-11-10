@@ -22,6 +22,12 @@ const eventSchema = new mongoose.Schema({
     required: true,
     // Note: For ImageBB, this stores the delete URL
   },
+  eventLink: {
+    type: String,
+    trim: true,
+    default: null,
+    // Optional URL link for the event
+  },
   isActive: {
     type: Boolean,
     default: true

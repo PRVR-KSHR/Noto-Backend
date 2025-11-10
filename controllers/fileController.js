@@ -168,7 +168,8 @@ export const uploadMaterial = async (req, res) => {
       professorName,
       semester,
       year,
-      documentType = 'typed' // NEW: Document type for AI model selection
+      documentType = 'typed', // NEW: Document type for AI model selection
+      taggedProfessors = '[]' // NEW: Tagged professors for verification
     } = req.body;
 
     // Validate required fields
@@ -179,6 +180,25 @@ export const uploadMaterial = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `Missing required fields: ${missingFields.map(([key]) => key).join(', ')}`
+      });
+    }
+
+    // NEW: Validate taggedProfessors
+    let parsedProfessors = [];
+    try {
+      parsedProfessors = typeof taggedProfessors === 'string' ? JSON.parse(taggedProfessors) : taggedProfessors;
+      if (!Array.isArray(parsedProfessors)) {
+        parsedProfessors = [];
+      }
+    } catch (err) {
+      console.warn('⚠️ Failed to parse taggedProfessors:', err.message);
+      parsedProfessors = [];
+    }
+
+    if (!parsedProfessors || parsedProfessors.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one professor must be tagged for verification'
       });
     }
 
@@ -217,7 +237,8 @@ export const uploadMaterial = async (req, res) => {
       type: req.file.mimetype,
       category: category,
       tempPath: tempFilePath, // ✅ NEW: Log temp path
-      currentUploadCount: currentUser.uploadCount
+      currentUploadCount: currentUser.uploadCount,
+      taggedProfessors: parsedProfessors.length
     });
 
     // Get category-specific folder
@@ -237,7 +258,7 @@ export const uploadMaterial = async (req, res) => {
     if (documentType === 'handwritten') {
       // Only extract text for handwritten documents (needs server-side OCR)
       try {
-        console.log('�️ Handwritten document detected - starting OCR extraction...');
+        console.log('🔍 Handwritten document detected - starting OCR extraction...');
         const fileBuffer = await fs.promises.readFile(tempFilePath);
         
         extractedText = await TextExtractionService.extractTextFromBuffer(
@@ -314,10 +335,21 @@ export const uploadMaterial = async (req, res) => {
       // NEW: Initialize verification status as pending
       verification: {
         status: 'pending' // Will be changed to 'verified' or 'rejected' by admin
-      }
+      },
+      // NEW: Add tagged professors for verification
+      taggedProfessors: parsedProfessors.map(prof => ({
+        professorId: prof._id,
+        professorName: prof.fullName || prof.name || '',
+        collegeName: prof.collegeName || '',
+        verificationStatus: 'pending'
+      }))
     });
 
+    console.log('📝 [Debug] Saving tagged professors:', newFile.taggedProfessors);
+
     await newFile.save();
+
+    console.log('✅ [Debug] File saved with tagged professors:', newFile.taggedProfessors);
 
     // Update user's upload count and stats
     await User.findByIdAndUpdate(req.user._id, {
@@ -340,7 +372,9 @@ export const uploadMaterial = async (req, res) => {
           uploadedAt: newFile.createdAt,
           uploader: req.user.displayName,
           folder: categoryFolder,
-          metadata: newFile.metadata
+          metadata: newFile.metadata,
+          taggedProfessors: parsedProfessors.length,
+          taggedProfessorsList: parsedProfessors.map(p => p.fullName || p.name)
         }
       }
     });
@@ -377,7 +411,8 @@ export const getFilesByCategory = async (req, res) => {
 
     const filter = {
       'moderation.approved': true,
-      'category.type': category
+      'category.type': category,
+      isHidden: false // NEW: Exclude hidden materials
     };
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -447,7 +482,8 @@ export const getFiles = async (req, res) => {
     // Build filter
     const filter = { 
       'moderation.approved': true,
-      'verification.status': 'verified' // NEW: Only show verified materials
+      'verification.status': 'verified', // NEW: Only show verified materials
+      isHidden: false // NEW: Exclude hidden materials
     };
     if (category) filter['category.type'] = category;
     if (course) filter['category.branch'] = new RegExp(course, 'i');

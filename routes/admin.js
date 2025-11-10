@@ -91,7 +91,11 @@ router.patch('/events/:eventId/toggle', requireAdmin, toggleEventStatus);
 router.get('/materials/pending', requireAdmin, async (req, res) => {
   try {
     const File = (await import('../models/File.js')).default;
-    const pendingMaterials = await File.find({ 'verification.status': 'pending' })
+    // ✅ UPDATED: Only show pending materials (exclude admin-verified or professor-verified)
+    const pendingMaterials = await File.find({ 
+      'verification.status': 'pending',
+      'verification.adminVerified': { $ne: true }  // Exclude admin-verified
+    })
       .sort({ createdAt: -1 })
       .populate('uploadedBy', 'name email')
       .lean();
@@ -115,12 +119,14 @@ router.post('/materials/:materialId/verify', requireAdmin, async (req, res) => {
     const File = (await import('../models/File.js')).default;
     const { materialId } = req.params;
     
+    // ✅ UPDATED: Admin verification auto-shows on Materials page
     const material = await File.findByIdAndUpdate(
       materialId,
       {
-        'verification.status': 'verified',
-        'verification.verifiedBy': req.user.uid,
-        'verification.verifiedAt': new Date()
+        'verification.status': 'verified',        // Sets to verified (shows on Materials page)
+        'verification.verifiedBy': 'admin_' + req.user.uid,  // Mark as admin verified
+        'verification.verifiedAt': new Date(),
+        'verification.adminVerified': true        // ✅ NEW: Mark as admin-verified
       },
       { new: true }
     );
@@ -134,7 +140,7 @@ router.post('/materials/:materialId/verify', requireAdmin, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Material verified successfully',
+      message: 'Material verified successfully and is now visible on Materials page',
       data: material
     });
   } catch (error) {

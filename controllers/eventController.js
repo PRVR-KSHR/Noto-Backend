@@ -46,14 +46,14 @@ export const getActiveEvents = async (req, res) => {
 export const createEvent = async (req, res) => {
   try {
     console.log('🎯 Creating new event...');
-    console.log('Request body:', { description: req.body.description, sectionTitle: req.body.sectionTitle });
+    console.log('Request body:', { description: req.body.description, sectionTitle: req.body.sectionTitle, eventLink: req.body.eventLink });
     console.log('File info:', req.file ? { 
       filename: req.file.originalname, 
       size: req.file.size, 
       mimetype: req.file.mimetype 
     } : 'No file provided');
     
-    const { description, sectionTitle } = req.body;
+    const { description, sectionTitle, eventLink } = req.body;
     
     if (!description || !req.file) {
       console.log('❌ Validation failed: Missing description or file');
@@ -89,6 +89,7 @@ export const createEvent = async (req, res) => {
       sectionTitle: sectionTitle ? sectionTitle.trim() : '🎉 Current Events',
       imageUrl: uploadResult.secure_url,
       imagePublicId: uploadResult.public_id,
+      eventLink: eventLink ? eventLink.trim() : null,
       createdBy: req.user.email,
       isActive: true
     });
@@ -120,7 +121,7 @@ export const createEvent = async (req, res) => {
 export const updateEvent = async (req, res) => {
   try {
     const { eventId } = req.params;
-    const { description, sectionTitle, isActive } = req.body;
+    const { description, sectionTitle, isActive, eventLink } = req.body;
 
     const event = await Event.findById(eventId);
     if (!event) {
@@ -134,6 +135,7 @@ export const updateEvent = async (req, res) => {
     if (description !== undefined) event.description = description.trim();
     if (sectionTitle !== undefined) event.sectionTitle = sectionTitle.trim();
     if (isActive !== undefined) event.isActive = isActive;
+    if (eventLink !== undefined) event.eventLink = eventLink ? eventLink.trim() : null;
     
     // Handle image update if new file is provided
     if (req.file) {

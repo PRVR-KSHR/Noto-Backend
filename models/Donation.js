@@ -20,11 +20,6 @@ const donationSchema = new mongoose.Schema({
   addedBy: {
     type: String,
     required: true // Admin's Firebase UID
-  },
-  notes: {
-    type: String,
-    trim: true,
-    maxlength: 500
   }
 }, {
   timestamps: true,
