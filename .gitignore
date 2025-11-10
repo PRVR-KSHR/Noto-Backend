@@ -91,6 +91,7 @@ uploads/
 public/uploads/
 files/
 documents/
+temp-uploads/
 
 # Database dumps
 *.sql
