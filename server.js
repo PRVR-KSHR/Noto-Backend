@@ -141,7 +141,16 @@ app.get('/api/health', (req, res) => {
   res.json({
     message: 'NATO API is running!',
     timestamp: new Date().toISOString(),
-    environment: NODE_ENV
+    environment: NODE_ENV,
+    uptime: process.uptime()
+  });
+});
+
+// ✅ NEW: Keep-alive endpoint to prevent Render sleep (ping every 14 mins)
+app.get('/api/keep-alive', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
   });
 });
 
