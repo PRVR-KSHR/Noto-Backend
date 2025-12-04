@@ -12,7 +12,7 @@ import donationRoutes from './routes/donations.js';
 import eventRoutes from './routes/events.js';
 import messageRoutes from './routes/messages.js';
 import ocrRoutes from './routes/ocr.js'; // NEW: OCR status route
-import professorRoutes from './routes/professors.js'; // NEW: Professor validator routes
+// import professorRoutes from './routes/professors.js'; // REMOVE: this static import crashes if model is missing
 import materialManagementRoutes from './routes/materialManagement.js'; // NEW: Material management routes
 
 // Import routes
@@ -124,8 +124,17 @@ app.use('/api/donations', donationRoutes);
 app.use('/api/events', eventRoutes); 
 app.use('/api/messages', messageRoutes);
 app.use('/api/ocr', ocrRoutes); // NEW: OCR status endpoint
-app.use('/api/professors', professorRoutes); // NEW: Professor validator endpoints
+// app.use('/api/professors', professorRoutes); // REMOVE: will register below if available
 app.use('/api/materials', materialManagementRoutes); // NEW: Material management endpoints
+
+// ✅ Safe, optional registration of professor routes (prevents crash if model/file missing)
+try {
+  const { default: professorRoutes } = await import('./routes/professors.js');
+  app.use('/api/professors', professorRoutes);
+  console.log('✅ Professor routes registered');
+} catch (err) {
+  console.warn('⚠️ Professor routes disabled:', err.message);
+}
 
 // Health check
 app.get('/api/health', (req, res) => {

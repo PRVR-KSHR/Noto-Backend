@@ -3,6 +3,7 @@ import File from '../models/File.js';
 import ProfessorValidator from '../models/ProfessorValidator.js';
 import { requireAdmin } from '../middleware/adminAuth.js';
 import { authenticateUser } from '../middleware/auth.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
@@ -232,65 +233,17 @@ router.patch('/admin/material/:materialId/unhide', requireAdmin, async (req, res
 });
 
 // ✅ 6. Get materials tagged to a professor (Professor verification)
-router.get('/professor/tagged-materials', authenticateUser, async (req, res) => {
-  try {
-    const professorId = req.user.uid;
-    console.log('🔍 [Debug] User ID:', professorId);
+router.get('/professor/tagged-materials', authenticateUser, asyncHandler(async (req, res) => {
+  const materials = await File.find({
+    'taggedProfessors._id': req.user.uid,
+    'verification.status': { $in: ['pending', 'verified', 'rejected'] }
+  }).populate('uploadedBy', 'displayName email');
 
-    // Find if user is an approved professor
-    const professor = await ProfessorValidator.findOne({
-      userId: professorId,
-      status: 'approved'
-    });
-
-    if (!professor) {
-      console.log('❌ [Debug] No approved professor found for user:', professorId);
-      return res.status(403).json({
-        success: false,
-        message: 'You are not an approved professor validator'
-      });
-    }
-
-    console.log('✅ [Debug] Professor found:', {
-      _id: professor._id,
-      fullName: professor.fullName,
-      userId: professor.userId
-    });
-
-    // ✅ UPDATED: Get materials tagged to this professor (exclude admin-verified)
-    console.log('🔍 [Debug] Searching for materials with query:', { 'taggedProfessors.professorId': professor._id });
-    
-    const materials = await File.find({
-      'taggedProfessors.professorId': professor._id,
-      'verification.adminVerified': { $ne: true }  // ✅ NEW: Exclude admin-verified
-    })
-      .populate('uploadedBy', 'username email')
-      .populate('taggedProfessors.professorId', 'fullName email')
-      .sort({ createdAt: -1 });
-    
-    console.log(`📊 [Debug] Found ${materials.length} materials for professor`);
-    if (materials.length > 0) {
-      console.log('📋 [Debug] First material tagged professors:', materials[0].taggedProfessors);
-    }
-
-    res.json({
-      success: true,
-      materials,
-      count: materials.length,
-      professorInfo: {
-        name: professor.fullName,
-        collegeName: professor.collegeName
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching tagged materials:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch materials',
-      error: error.message
-    });
-  }
-});
+  res.json({
+    success: true,
+    materials: materials || []
+  });
+}));
 
 // ✅ 7. Professor approves/rejects material
 router.patch('/professor/material/:materialId/verify', authenticateUser, async (req, res) => {

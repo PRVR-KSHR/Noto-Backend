@@ -29,27 +29,14 @@ router.get('/category/:category', optionalAuth, asyncHandler(getFilesByCategory)
 // Search files
 router.get('/search', optionalAuth, asyncHandler(getFiles));
 
-// Upload file
-router.post('/upload', authenticateUser, uploadMiddleware, asyncHandler(uploadMaterial));
-
-// Download file
-router.get('/download/:fileId', optionalAuth, asyncHandler(getFileDownload));
-
-// NEW: Route to get file with extracted text
+// NEW: Route to get file with extracted text (BEFORE generic /:fileId)
 router.get('/view/:fileId', optionalAuth, asyncHandler(getFileWithText));
 
-// Delete material (only owner can delete)
-router.delete('/:fileId', authenticateUser, asyncHandler(deleteMaterial));
+// Download file (BEFORE generic /:fileId)
+router.get('/download/:fileId', optionalAuth, asyncHandler(getFileDownload));
 
-// Add these routes before export default router;
-// Bookmark routes
-router.post('/bookmark/:fileId', authenticateUser, asyncHandler(addBookmark));
-router.delete('/bookmark/:fileId', authenticateUser, asyncHandler(removeBookmark));
+// Bookmark routes (GET before generic /:fileId)
 router.get('/bookmarks', authenticateUser, asyncHandler(getUserBookmarks));
-
-// Star routes
-router.post('/star/:fileId', authenticateUser, asyncHandler(addStar));
-router.delete('/star/:fileId', authenticateUser, asyncHandler(removeStar));
 router.get('/stars', authenticateUser, asyncHandler(getUserStars));
 
 // Get user's uploads
@@ -88,7 +75,7 @@ router.get('/my-uploads', authenticateUser, asyncHandler(async (req, res) => {
   }
 }));
 
-// Add this route in routes/files.js
+// ⚠️ THIS MUST BE LAST GET ROUTE - catches any other /:fileId
 router.get('/:fileId', optionalAuth, asyncHandler(async (req, res) => {
   try {
     const { fileId } = req.params;
@@ -106,10 +93,24 @@ router.get('/:fileId', optionalAuth, asyncHandler(async (req, res) => {
       file: file
     });
   } catch (error) {
-    // Will be handled by error middleware
     throw error;
   }
 }));
+
+// Upload file
+router.post('/upload', authenticateUser, uploadMiddleware, asyncHandler(uploadMaterial));
+
+// Delete material (only owner can delete)
+router.delete('/:fileId', authenticateUser, asyncHandler(deleteMaterial));
+
+// Add these routes before export default router;
+// Bookmark routes
+router.post('/bookmark/:fileId', authenticateUser, asyncHandler(addBookmark));
+router.delete('/bookmark/:fileId', authenticateUser, asyncHandler(removeBookmark));
+
+// Star routes
+router.post('/star/:fileId', authenticateUser, asyncHandler(addStar));
+router.delete('/star/:fileId', authenticateUser, asyncHandler(removeStar));
 
 
 export default router;
