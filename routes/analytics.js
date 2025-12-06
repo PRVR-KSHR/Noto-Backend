@@ -1,8 +1,93 @@
 import express from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import Visitor from '../models/Visitor.js';
+import ActiveSession from '../models/ActiveSession.js';
 
 const router = express.Router();
+
+// ✅ NEW: Track active user session
+router.post('/session/start', asyncHandler(async (req, res) => {
+  try {
+    const sessionId = req.body.sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const { page } = req.body;
+
+    // Create or update active session
+    await ActiveSession.findOneAndUpdate(
+      { sessionId },
+      {
+        sessionId,
+        page: page || '/',
+        lastActive: new Date(),
+        startedAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({
+      success: true,
+      sessionId
+    });
+  } catch (error) {
+    console.error('Error starting session:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to start session'
+    });
+  }
+}));
+
+// ✅ NEW: Update active session (keep-alive)
+router.post('/session/ping', asyncHandler(async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return res.status(400).json({
+        success: false,
+        message: 'sessionId required'
+      });
+    }
+
+    await ActiveSession.findOneAndUpdate(
+      { sessionId },
+      { lastActive: new Date() },
+      { new: true }
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error pinging session:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to ping session'
+    });
+  }
+}));
+
+// ✅ NEW: Get current active users count
+router.get('/active-users', asyncHandler(async (req, res) => {
+  try {
+    // Count sessions active in last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+    const activeCount = await ActiveSession.countDocuments({
+      lastActive: {
+        $gte: fiveMinutesAgo
+      }
+    });
+
+    res.json({
+      success: true,
+      activeUsers: activeCount
+    });
+  } catch (error) {
+    console.error('Error getting active users:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get active users'
+    });
+  }
+}));
 
 // Log a visitor visit
 router.post('/visit', asyncHandler(async (req, res) => {
