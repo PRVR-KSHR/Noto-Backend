@@ -234,10 +234,24 @@ router.patch('/admin/material/:materialId/unhide', requireAdmin, async (req, res
 
 // ✅ 6. Get materials tagged to a professor (Professor verification)
 router.get('/professor/tagged-materials', authenticateUser, asyncHandler(async (req, res) => {
+  // Get the professor's record to get their MongoDB ID
+  const { default: ProfessorValidator } = await import('../models/ProfessorValidator.js');
+  const professor = await ProfessorValidator.findOne({ userId: req.user.uid });
+  
+  if (!professor) {
+    return res.json({
+      success: true,
+      materials: []
+    });
+  }
+
+  // Find materials where this professor is tagged
   const materials = await File.find({
-    'taggedProfessors._id': req.user.uid,
-    'verification.status': { $in: ['pending', 'verified', 'rejected'] }
-  }).populate('uploadedBy', 'displayName email');
+    'taggedProfessors.professorId': professor._id
+  })
+    .select('_id title subject collegeName uploadedBy verification taggedProfessors createdAt')
+    .populate('uploadedBy', 'displayName email')
+    .lean();
 
   res.json({
     success: true,
@@ -246,102 +260,93 @@ router.get('/professor/tagged-materials', authenticateUser, asyncHandler(async (
 }));
 
 // ✅ 7. Professor approves/rejects material
-router.patch('/professor/material/:materialId/verify', authenticateUser, async (req, res) => {
-  try {
-    const { materialId } = req.params;
-    const { verificationStatus, feedback } = req.body;
-    const professorId = req.user.uid;
+router.patch('/professor/material/:materialId/verify', authenticateUser, asyncHandler(async (req, res) => {
+  const { materialId } = req.params;
+  const { verificationStatus, feedback } = req.body;
+  const professorId = req.user.uid;
 
-    if (!['approved', 'rejected'].includes(verificationStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid verification status'
-      });
-    }
-
-    // Verify professor is approved
-    const professor = await ProfessorValidator.findOne({
-      userId: professorId,
-      status: 'approved'
-    });
-
-    if (!professor) {
-      return res.status(403).json({
-        success: false,
-        message: 'You are not an approved professor validator'
-      });
-    }
-
-    // Update material verification status for this professor
-    const material = await File.findOne({
-      _id: materialId,
-      'taggedProfessors.professorId': professor._id
-    });
-
-    if (!material) {
-      return res.status(404).json({
-        success: false,
-        message: 'Material not found or not tagged to you'
-      });
-    }
-
-    // ✅ NEW: Check if already admin-verified
-    if (material.verification.adminVerified) {
-      return res.status(400).json({
-        success: true,  // Still success, just inform user
-        message: 'This material has already been verified by admin and is now visible on Materials page',
-        material
-      });
-    }
-
-    // Find and update the professor's verification in the array
-    const profVerificationIndex = material.taggedProfessors.findIndex(
-      p => p.professorId.toString() === professor._id.toString()
-    );
-
-    if (profVerificationIndex !== -1) {
-      material.taggedProfessors[profVerificationIndex].verificationStatus = verificationStatus;
-      material.taggedProfessors[profVerificationIndex].verifiedAt = new Date();
-      material.taggedProfessors[profVerificationIndex].feedback = feedback || '';
-    }
-
-    // ✅ UPDATED: Check if all professors have approved the material
-    const allApproved = material.taggedProfessors.every(p => p.verificationStatus === 'approved');
-    const anyRejected = material.taggedProfessors.some(p => p.verificationStatus === 'rejected');
-
-    if (allApproved) {
-      // All professors approved → set to verified so it shows on Materials page
-      material.verification.status = 'verified';
-      material.verification.verifiedAt = new Date();
-      material.verification.verifiedBy = 'professor_validators';  // Mark as professor-verified
-      material.verification.professorVerified = true;             // ✅ NEW: Mark as professor-verified
-    } else if (anyRejected) {
-      // At least one professor rejected → set to rejected
-      material.verification.status = 'rejected';
-      material.verification.rejectedAt = new Date();
-      material.verification.rejectedBy = 'professor_validators';
-    }
-
-    await material.save();
-
-    res.json({
-      success: true,
-      message: allApproved ? 
-        `Material verified by all professors and is now visible on Materials page` :
-        anyRejected ?
-        `Material rejected` :
-        `Material verification status updated`,
-      material
-    });
-  } catch (error) {
-    console.error('Error verifying material:', error);
-    res.status(500).json({
+  if (!['approved', 'rejected'].includes(verificationStatus)) {
+    return res.status(400).json({
       success: false,
-      message: 'Failed to verify material',
-      error: error.message
+      message: 'Invalid verification status'
     });
   }
-});
+
+  // Verify professor is approved
+  const professor = await ProfessorValidator.findOne({
+    userId: professorId,
+    status: 'approved'
+  });
+
+  if (!professor) {
+    return res.status(403).json({
+      success: false,
+      message: 'You are not an approved professor validator'
+    });
+  }
+
+  // Update material verification status for this professor
+  const material = await File.findOne({
+    _id: materialId,
+    'taggedProfessors.professorId': professor._id
+  });
+
+  if (!material) {
+    return res.status(404).json({
+      success: false,
+      message: 'Material not found or not tagged to you'
+    });
+  }
+
+  // ✅ NEW: Check if already admin-verified
+  if (material.verification.adminVerified) {
+    return res.status(200).json({
+      success: true,  // Still success, just inform user
+      message: 'This material has already been verified by admin and is now visible on Materials page',
+      material
+    });
+  }
+
+  // Find and update the professor's verification in the array
+  const profVerificationIndex = material.taggedProfessors.findIndex(
+    p => p.professorId.toString() === professor._id.toString()
+  );
+
+  if (profVerificationIndex !== -1) {
+    material.taggedProfessors[profVerificationIndex].verificationStatus = verificationStatus;
+    material.taggedProfessors[profVerificationIndex].verifiedAt = new Date();
+    material.taggedProfessors[profVerificationIndex].feedback = feedback || '';
+  }
+
+  // ✅ UPDATED: Check if all professors have approved the material
+  const allApproved = material.taggedProfessors.every(p => p.verificationStatus === 'approved');
+  const anyRejected = material.taggedProfessors.some(p => p.verificationStatus === 'rejected');
+
+  if (allApproved) {
+    // All professors approved → set to verified so it shows on Materials page
+    material.verification.status = 'verified';
+    material.verification.verifiedAt = new Date();
+    material.verification.verifiedBy = 'professor_validators';  // Mark as professor-verified
+    material.verification.professorVerified = true;             // ✅ NEW: Mark as professor-verified
+  } else if (anyRejected) {
+    // At least one professor rejected → set to rejected
+    material.verification.status = 'rejected';
+    material.verification.rejectedAt = new Date();
+    material.verification.rejectedBy = 'professor_validators';
+  }
+
+  await material.save();
+
+  res.json({
+    success: true,
+    message: allApproved ? 
+      `Material verified by all professors and is now visible on Materials page` :
+      anyRejected ?
+      `Material rejected` :
+      `Material verification status updated`,
+    material
+  });
+}));
 
 // ✅ 8. Get admin dashboard stats for material management
 router.get('/admin/stats', requireAdmin, async (req, res) => {
