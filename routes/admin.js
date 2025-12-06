@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { requireAdmin, checkAdminStatus } from '../middleware/adminAuth.js';
-import { deleteFile } from '../services/storageService.js'; // NEW: For Cloudinary deletion
+import { deleteFile } from '../services/storageService.js'; // For Filen deletion
 import {
   getAllDonationsAdmin,
   addDonation,
@@ -21,7 +21,7 @@ import {
 
 const router = express.Router();
 
-// Configure multer for file uploads (disk storage so Cloudinary can read file.path)
+// Configure multer for file uploads (disk storage so Filen can read file.path)
 const diskStorage = multer.diskStorage({
   destination: function (req, file, cb) {
     const uploadDir = path.join(process.cwd(), 'temp-uploads');
@@ -176,7 +176,7 @@ router.post('/materials/:materialId/reject', requireAdmin, async (req, res) => {
       });
     }
 
-    // NEW: Delete from Cloudinary when material is rejected
+    // Delete from Filen storage when material is rejected
     try {
       if (material.storage?.publicId && material.storage?.provider) {
         console.log(`🗑️ Deleting rejected material from ${material.storage.provider}: ${material.storage.publicId}`);

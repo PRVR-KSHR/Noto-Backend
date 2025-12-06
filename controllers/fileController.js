@@ -183,7 +183,7 @@ export const uploadMaterial = async (req, res) => {
       });
     }
 
-    // NEW: Validate taggedProfessors
+    // NEW: Parse taggedProfessors (optional)
     let parsedProfessors = [];
     try {
       parsedProfessors = typeof taggedProfessors === 'string' ? JSON.parse(taggedProfessors) : taggedProfessors;
@@ -195,11 +195,9 @@ export const uploadMaterial = async (req, res) => {
       parsedProfessors = [];
     }
 
-    if (!parsedProfessors || parsedProfessors.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'At least one professor must be tagged for verification'
-      });
+    // Professor tagging is optional - admin will verify if not tagged
+    if (parsedProfessors.length === 0) {
+      console.log('ℹ️ No professors tagged - will be verified by admin');
     }
 
     if (!req.file) {

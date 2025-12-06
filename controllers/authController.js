@@ -241,16 +241,16 @@ export const deleteAccount = async (req, res) => {
     const userId = req.user._id;
     const firebaseUid = req.user.uid;
 
-    // Step 1: Find and delete all user's files from Cloudinary and database
+    // Step 1: Find and delete all user's files from Filen and database
     const userFiles = await File.find({ uploadedBy: firebaseUid });
   logger.info(`📁 Found ${userFiles.length} files to delete`);
 
-    // Delete files from Cloudinary and database
+    // Delete files from Filen and database
     for (const file of userFiles) {
       try {
-        // Delete from Cloudinary
+        // Delete from Filen
         await deleteFile(file.storage.publicId, file.storage.provider);
-  logger.info(`✅ Deleted from Cloudinary: ${file.title}`);
+  logger.info(`✅ Deleted from Filen: ${file.title}`);
       } catch (cloudinaryError) {
   logger.error(`❌ Failed to delete from Cloudinary: ${file.title}`, cloudinaryError);
         // Continue with deletion even if Cloudinary fails
