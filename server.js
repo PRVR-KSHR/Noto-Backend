@@ -125,7 +125,7 @@ app.use('/api/donations', donationRoutes);
 app.use('/api/events', eventRoutes); 
 app.use('/api/messages', messageRoutes);
 app.use('/api/ocr', ocrRoutes); // NEW: OCR status endpoint
-app.use('/api/analytics', analyticsRoutes); // NEW: Visitor analytics
+app.use('/api/analytics', analyticsRoutes); // NEW: Visitor analytics with real-time active users tracking
 // app.use('/api/professors', professorRoutes); // REMOVE: will register below if available
 app.use('/api/materials', materialManagementRoutes); // NEW: Material management endpoints
 
