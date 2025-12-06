@@ -236,7 +236,7 @@ export const deleteMessage = async (req, res) => {
   try {
     const { messageId } = req.params;
     const userEmail = req.user.email;
-    const isAdmin = req.user.role === 'admin';
+    const isAdmin = req.isAdmin; // ✅ FIX: Use isAdmin from middleware instead of role
 
     const message = await Message.findById(messageId);
     if (!message) {

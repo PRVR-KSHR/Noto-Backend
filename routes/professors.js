@@ -116,7 +116,7 @@ router.get('/admin/all', requireAdmin, asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    data: applications,
+    applications, // ✅ FIX: Changed from 'data' to 'applications'
     pagination: {
       total,
       page: parseInt(page),
