@@ -126,23 +126,6 @@ router.get('/admin/all', requireAdmin, asyncHandler(async (req, res) => {
 }));
 
 // ✅ NEW: Admin - Get professor verification stats
-router.get('/admin/stats', requireAdmin, asyncHandler(async (req, res) => {
-  const pending = await ProfessorValidator.countDocuments({ status: 'pending' });
-  const approved = await ProfessorValidator.countDocuments({ status: 'approved' });
-  const rejected = await ProfessorValidator.countDocuments({ status: 'rejected' });
-  const total = await ProfessorValidator.countDocuments();
-
-  res.json({
-    success: true,
-    stats: {
-      pending,
-      approved,
-      rejected,
-      total
-    }
-  });
-}));
-
 // ✅ NEW: Admin - Get statistics for professor applications
 router.get('/admin/stats', requireAdmin, asyncHandler(async (req, res) => {
   const pending = await ProfessorValidator.countDocuments({ status: 'pending' });
