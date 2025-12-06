@@ -7,7 +7,8 @@ const visitorSchema = new mongoose.Schema({
   },
   visitedAt: {
     type: Date,
-    default: Date.now
+    default: Date.now,
+    index: true
   },
   visitDate: {
     type: Date,
@@ -20,13 +21,18 @@ const visitorSchema = new mongoose.Schema({
   },
   ip: {
     type: String,
-    default: ''
+    default: '',
+    index: true
   }
 }, {
   timestamps: false
 });
 
-// Auto-delete records older than 90 days
+// Create compound index for efficient queries
+visitorSchema.index({ visitDate: 1, ip: 1 });
+visitorSchema.index({ page: 1, visitDate: 1 });
+
+// Auto-delete records older than 90 days to save storage
 visitorSchema.index({ visitedAt: 1 }, { expireAfterSeconds: 7776000 });
 
 export default mongoose.model('Visitor', visitorSchema);
