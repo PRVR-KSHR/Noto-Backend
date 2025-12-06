@@ -17,26 +17,8 @@ import {
   deleteMaterial
 } from '../controllers/fileController.js';
 import File from '../models/File.js';
-import filenService from '../services/filenService.js';
 
 const router = express.Router();
-
-// ✅ NEW: Storage health check endpoint
-router.get('/health/storage', asyncHandler(async (req, res) => {
-  try {
-    const health = await filenService.healthCheck();
-    res.json({
-      success: true,
-      storage: health,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-}));
 
 // Get all files with filters
 router.get('/', asyncHandler(getFiles));

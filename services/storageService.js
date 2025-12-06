@@ -1,11 +1,24 @@
+import { v2 as cloudinary } from 'cloudinary';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import logger from '../utils/logger.js';
-import filenService from './filenService.js';
 
 // Initialize storage providers
+let cloudinaryConfigured = false;
 let s3Client = null;
+
+// Configure Cloudinary
+const configureCloudinary = () => {
+  if (!cloudinaryConfigured) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    cloudinaryConfigured = true;
+  }
+};
 
 // Configure R2 (Future use)
 const configureR2 = () => {
@@ -21,54 +34,98 @@ const configureR2 = () => {
   }
 };
 
-// Abstracted upload function - Routes to appropriate provider
+// Abstracted upload function
 export const uploadFile = async (file, folder = 'uploads') => {
-  const provider = process.env.STORAGE_PROVIDER || 'filen';
-  
-  logger.info(`📦 Uploading with provider: ${provider}`);
-  
+  const provider = process.env.STORAGE_PROVIDER || 'cloudinary';
   switch (provider) {
-    case 'filen':
-      try {
-        return await uploadToFilen(file, folder);
-      } catch (filenError) {
-        logger.error('❌ Filen upload failed, attempting R2 fallback:', filenError.message);
-        // Fallback to R2 if Filen fails
-        if (process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY) {
-          return await uploadToR2(file, folder);
-        }
-        throw filenError; // Re-throw if no fallback available
-      }
+    case 'cloudinary':
+      return await uploadToCloudinary(file, folder);
     case 'r2':
       return await uploadToR2(file, folder);
     default:
-      throw new Error(`Invalid storage provider: ${provider}. Use 'filen' or 'r2'.`);
+      throw new Error('Invalid storage provider');
   }
 };
 
-// Filen.io upload
-const uploadToFilen = async (file, folder) => {
+// ✅ FIXED: Cloudinary upload with proper extension handling
+const uploadToCloudinary = async (file, folder) => {
   try {
-    // Check if credentials are set
-    if (!process.env.FILEN_EMAIL || !process.env.FILEN_PASSWORD) {
-      const missingVars = [];
-      if (!process.env.FILEN_EMAIL) missingVars.push('FILEN_EMAIL');
-      if (!process.env.FILEN_PASSWORD) missingVars.push('FILEN_PASSWORD');
-      
-      const errorMsg = `Missing Filen credentials in environment: ${missingVars.join(', ')}. Set these in Render dashboard.`;
-      logger.error(errorMsg);
-      throw new Error(errorMsg);
-    }
+    configureCloudinary();
 
-    const result = await filenService.uploadFile(file, folder);
-    
-    return {
-      fileUrl: result.fileUrl,
-      publicId: result.publicId,
-      provider: 'filen'
-    };
+    // ✅ CRITICAL: Extract file extension from original filename
+    const fileExtension = file.originalname.split('.').pop().toLowerCase();
+    const timestamp = Date.now();
+    const uniqueId = uuidv4();
+
+    // ✅ CRITICAL: Include extension in public_id for raw files
+    const publicIdWithExtension = `${timestamp}_${uniqueId}.${fileExtension}`;
+
+    logger.info('📁 Uploading file:', {
+      originalName: file.originalname,
+      extension: fileExtension,
+      publicId: publicIdWithExtension,
+      folder: `noto/${folder}`,
+      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
+    });
+
+    // ✅ OPTIMIZED: Use upload_large for better performance with chunked upload
+    return new Promise((resolve, reject) => {
+      const uploadOptions = {
+        folder: `noto/${folder}`,
+        resource_type: 'raw', // ✅ CRITICAL: Use 'raw' for documents
+        public_id: publicIdWithExtension, // ✅ CRITICAL: Include extension
+        use_filename: false, // ✅ We're setting public_id explicitly
+        unique_filename: false, // ✅ We're handling uniqueness ourselves
+        // ✅ CRITICAL: Make files publicly accessible
+        type: 'upload',
+        access_mode: 'public',
+        // ✅ OPTIMIZED: Use chunked upload with larger chunk size for speed
+        chunk_size: 10000000 // 10MB chunks for faster upload
+      };
+
+      // ✅ OPTIMIZED: Use upload_large for files > 5MB, regular upload for smaller files
+      const uploadMethod = file.size > 5 * 1024 * 1024 
+        ? cloudinary.uploader.upload_large 
+        : cloudinary.uploader.upload;
+
+      uploadMethod(file.path, uploadOptions, (error, result) => {
+        if (error) {
+          console.error('❌ Cloudinary upload error:', error);
+          reject(new Error('Cloudinary upload failed: ' + error.message));
+        } else {
+          logger.info('✅ Cloudinary upload successful:', {
+            publicId: result.public_id,
+            secureUrl: result.secure_url,
+            format: result.format,
+            resourceType: result.resource_type,
+            size: `${(result.bytes / 1024 / 1024).toFixed(2)} MB`
+          });
+
+          // ✅ Generate optimized URLs for different use cases
+          const baseUrl = result.secure_url;
+          const publicId = result.public_id;
+          
+          // Generate thumbnail URL (for preview/listing pages) - significantly reduces bandwidth
+          const thumbnailUrl = cloudinary.url(publicId, {
+            resource_type: 'raw',
+            format: 'jpg', // Convert first page to JPG
+            page: 1, // Only first page for preview
+            quality: 'auto:low', // Automatic quality optimization
+            fetch_format: 'auto', // Automatic format selection
+          });
+
+          resolve({
+            fileUrl: baseUrl, // Original file URL (for download)
+            thumbnailUrl: thumbnailUrl, // Optimized preview URL
+            publicId: result.public_id,
+            provider: 'cloudinary'
+          });
+        }
+      });
+    });
+
   } catch (error) {
-    throw new Error('Filen upload failed: ' + error.message);
+    throw new Error('Cloudinary upload failed: ' + error.message);
   }
 };
 
@@ -109,26 +166,45 @@ const uploadToR2 = async (file, folder) => {
 
 // Abstracted delete function
 export const deleteFile = async (publicId, provider = null) => {
-  const storageProvider = provider || process.env.STORAGE_PROVIDER || 'filen';
-  
+  const storageProvider = provider || process.env.STORAGE_PROVIDER || 'cloudinary';
   switch (storageProvider) {
-    case 'filen':
-      return await deleteFromFilen(publicId);
+    case 'cloudinary':
+      return await deleteFromCloudinary(publicId);
     case 'r2':
       return await deleteFromR2(publicId);
     default:
-      throw new Error(`Invalid storage provider: ${storageProvider}`);
+      throw new Error('Invalid storage provider for deletion');
   }
 };
 
-// Filen delete
-const deleteFromFilen = async (fileUUID) => {
+// ✅ FIXED: Cloudinary delete with correct resource_type
+const deleteFromCloudinary = async (publicId) => {
   try {
-    await filenService.deleteFile(fileUUID);
-    return { success: true };
+    configureCloudinary();
+    
+    console.log('🗑️ Attempting to delete from Cloudinary:', publicId);
+    
+    // ✅ CRITICAL: Add resource_type: 'raw' for non-image files
+    const result = await cloudinary.uploader.destroy(publicId, { 
+      resource_type: 'raw',
+      invalidate: true  // Clear CDN cache
+    });
+    
+    console.log('🗑️ Cloudinary delete result:', result);
+    
+    // Handle different result types
+    if (result.result === 'ok') {
+      console.log('✅ File successfully deleted from Cloudinary');
+      return { success: true };
+    } else if (result.result === 'not found') {
+      console.warn('⚠️ File not found in Cloudinary (may already be deleted):', publicId);
+      return { success: true }; // Consider successful since file doesn't exist
+    } else {
+      throw new Error(`Cloudinary deletion failed with result: ${result.result}`);
+    }
   } catch (error) {
-    logger.error('❌ Filen delete error:', error);
-    return { success: false, error: error.message };
+    logger.error('❌ Cloudinary delete error:', error);
+    throw new Error('Cloudinary delete failed: ' + error.message);
   }
 };
 

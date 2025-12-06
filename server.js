@@ -21,7 +21,6 @@ import fileRoutes from './routes/files.js';
 import userRoutes from './routes/users.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 import logger from './utils/logger.js';
-import filenService from './services/filenService.js'; // NEW: For Filen health check
 
 dotenv.config();
 
@@ -164,18 +163,6 @@ mongoose.set('strictQuery', true);
 mongoose.connect(process.env.MONGODB_URI, {} )
   .then(() => {
     logger.info('✅ Connected to MongoDB');
-    
-    // Check Filen credentials at startup
-    logger.info('🔍 Checking Filen credentials...');
-    if (process.env.FILEN_EMAIL && process.env.FILEN_PASSWORD) {
-      logger.info('✅ Filen credentials found:', process.env.FILEN_EMAIL.substring(0, 5) + '***');
-    } else {
-      logger.warn('⚠️ Filen credentials NOT found in environment variables');
-      logger.warn('   FILEN_EMAIL:', !!process.env.FILEN_EMAIL);
-      logger.warn('   FILEN_PASSWORD:', !!process.env.FILEN_PASSWORD);
-      logger.warn('   Check Render dashboard > Environment tab');
-    }
-    
     app.listen(PORT, () => {
       logger.info(`🚀 NATO Server running on port ${PORT}`);
       logger.info(`📱 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
