@@ -80,7 +80,10 @@ const fileSchema = new mongoose.Schema({
       default: 'pending'
     },
     verifiedAt: { type: Date },
-    feedback: { type: String }
+    feedback: { type: String },
+    rejectionFeedback: { type: String }, // ✅ NEW: Detailed feedback when rejected
+    rejectedAt: { type: Date },
+    comments: { type: String }
   }],
   
   // NEW: Material management

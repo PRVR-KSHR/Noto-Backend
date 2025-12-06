@@ -270,7 +270,7 @@ router.post('/verification/:materialId/approve', authenticateUser, asyncHandler(
   });
 }));
 
-// ✅ NEW: Professor rejects assigned material
+// ✅ NEW: Professor rejects assigned material with feedback
 router.post('/verification/:materialId/reject', authenticateUser, asyncHandler(async (req, res) => {
   const { materialId } = req.params;
   const { comments } = req.body;
@@ -292,7 +292,8 @@ router.post('/verification/:materialId/reject', authenticateUser, asyncHandler(a
       $set: {
         'taggedProfessors.$[elem].verificationStatus': 'rejected',
         'taggedProfessors.$[elem].comments': comments || 'Rejected by professor',
-        'taggedProfessors.$[elem].rejectedAt': new Date()
+        'taggedProfessors.$[elem].rejectedAt': new Date(),
+        'taggedProfessors.$[elem].rejectionFeedback': comments || ''  // ✅ NEW: Store detailed feedback
       }
     },
     {
@@ -310,8 +311,66 @@ router.post('/verification/:materialId/reject', authenticateUser, asyncHandler(a
 
   res.json({
     success: true,
-    message: 'Material rejected',
+    message: 'Material rejected with feedback',
     data: material
+  });
+}));
+
+// ✅ NEW: Professor deletes assigned material (removes from system and cloud storage)
+router.delete('/verification/:materialId/delete', authenticateUser, asyncHandler(async (req, res) => {
+  const { materialId } = req.params;
+
+  // Get the professor's record
+  const professor = await ProfessorValidator.findOne({ userId: req.user.uid });
+  
+  if (!professor) {
+    return res.status(404).json({
+      success: false,
+      message: 'Professor profile not found'
+    });
+  }
+
+  // Find the material
+  const material = await File.findById(materialId);
+  
+  if (!material) {
+    return res.status(404).json({
+      success: false,
+      message: 'Material not found'
+    });
+  }
+
+  // Check if this professor is tagged to this material
+  const professorTag = material.taggedProfessors.find(
+    p => p.professorId && p.professorId.toString() === professor._id.toString()
+  );
+
+  if (!professorTag) {
+    return res.status(403).json({
+      success: false,
+      message: 'You are not authorized to delete this material'
+    });
+  }
+
+  // ✅ NEW: Delete from cloud storage (Cloudinary or other provider)
+  if (material.storage?.publicId && material.storage?.provider) {
+    try {
+      const { deleteFile } = await import('../services/storageService.js');
+      await deleteFile(material.storage.publicId, material.storage.provider);
+      console.log(`✅ Deleted ${material.storage.provider} file: ${material.storage.publicId}`);
+    } catch (deleteError) {
+      console.error(`⚠️ Failed to delete from ${material.storage.provider}:`, deleteError);
+      // Continue with database deletion even if cloud deletion fails
+    }
+  }
+
+  // Delete from database
+  await File.findByIdAndDelete(materialId);
+
+  res.json({
+    success: true,
+    message: 'Material deleted successfully from system and cloud storage',
+    data: { deletedId: materialId }
   });
 }));
 

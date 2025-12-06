@@ -47,16 +47,28 @@ router.get('/admin/all-materials', requireAdmin, async (req, res) => {
 
     const materials = await File.find(filter)
       .select('_id title fileName fileType fileSize category uploadedBy metadata stats verification isHidden createdAt')
-      .populate('uploadedBy', 'username email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
+
+    // ✅ NEW: Fetch user details for each material
+    const User = (await import('../models/User.js')).default;
+    const enrichedMaterials = await Promise.all(
+      materials.map(async (material) => {
+        const user = await User.findOne({ firebaseUid: material.uploadedBy }).select('name email displayName');
+        return {
+          ...material.toObject(),
+          uploaderName: user?.name || user?.displayName || 'Unknown User',
+          uploaderEmail: user?.email || ''
+        };
+      })
+    );
 
     const total = await File.countDocuments(filter);
 
     res.json({
       success: true,
-      materials,
+      materials: enrichedMaterials,
       pagination: {
         total,
         page: parseInt(page),
