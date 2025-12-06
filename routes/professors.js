@@ -180,4 +180,139 @@ router.post('/admin/:applicationId/reject', requireAdmin, asyncHandler(async (re
   });
 }));
 
+// ✅ NEW: Get materials assigned to logged-in professor for verification
+router.get('/verification/assigned', authenticateUser, asyncHandler(async (req, res) => {
+  // Get the professor's record
+  const professor = await ProfessorValidator.findOne({ userId: req.user.uid });
+  
+  if (!professor) {
+    return res.status(404).json({
+      success: false,
+      message: 'Professor profile not found'
+    });
+  }
+
+  // Find materials where this professor is tagged
+  const materials = await File.find({
+    'taggedProfessors.professorId': professor._id
+  })
+    .select('_id title subject collegeName uploadedBy verification taggedProfessors createdAt')
+    .populate('uploadedBy', 'name email')
+    .sort({ createdAt: -1 });
+
+  // Filter to show only materials assigned to this professor
+  const assignedMaterials = materials.map(material => {
+    const professorTag = material.taggedProfessors.find(
+      p => p.professorId && p.professorId.toString() === professor._id.toString()
+    );
+    
+    return {
+      _id: material._id,
+      title: material.title,
+      subject: material.subject,
+      collegeName: material.collegeName,
+      uploadedBy: material.uploadedBy,
+      createdAt: material.createdAt,
+      verificationStatus: professorTag?.verificationStatus || 'pending',
+      professorsComments: professorTag?.comments || ''
+    };
+  });
+
+  res.json({
+    success: true,
+    data: assignedMaterials,
+    count: assignedMaterials.length
+  });
+}));
+
+// ✅ NEW: Professor verifies/approves assigned material
+router.post('/verification/:materialId/approve', authenticateUser, asyncHandler(async (req, res) => {
+  const { materialId } = req.params;
+  const { comments } = req.body;
+
+  // Get the professor's record
+  const professor = await ProfessorValidator.findOne({ userId: req.user.uid });
+  
+  if (!professor) {
+    return res.status(404).json({
+      success: false,
+      message: 'Professor profile not found'
+    });
+  }
+
+  // Find and update the material
+  const material = await File.findByIdAndUpdate(
+    materialId,
+    {
+      $set: {
+        'taggedProfessors.$[elem].verificationStatus': 'approved',
+        'taggedProfessors.$[elem].comments': comments || '',
+        'taggedProfessors.$[elem].verifiedAt': new Date()
+      }
+    },
+    {
+      arrayFilters: [{ 'elem.professorId': professor._id }],
+      new: true
+    }
+  ).populate('uploadedBy', 'name email');
+
+  if (!material) {
+    return res.status(404).json({
+      success: false,
+      message: 'Material not found'
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Material approved successfully',
+    data: material
+  });
+}));
+
+// ✅ NEW: Professor rejects assigned material
+router.post('/verification/:materialId/reject', authenticateUser, asyncHandler(async (req, res) => {
+  const { materialId } = req.params;
+  const { comments } = req.body;
+
+  // Get the professor's record
+  const professor = await ProfessorValidator.findOne({ userId: req.user.uid });
+  
+  if (!professor) {
+    return res.status(404).json({
+      success: false,
+      message: 'Professor profile not found'
+    });
+  }
+
+  // Find and update the material
+  const material = await File.findByIdAndUpdate(
+    materialId,
+    {
+      $set: {
+        'taggedProfessors.$[elem].verificationStatus': 'rejected',
+        'taggedProfessors.$[elem].comments': comments || 'Rejected by professor',
+        'taggedProfessors.$[elem].rejectedAt': new Date()
+      }
+    },
+    {
+      arrayFilters: [{ 'elem.professorId': professor._id }],
+      new: true
+    }
+  ).populate('uploadedBy', 'name email');
+
+  if (!material) {
+    return res.status(404).json({
+      success: false,
+      message: 'Material not found'
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Material rejected',
+    data: material
+  });
+}));
+
 export default router;
