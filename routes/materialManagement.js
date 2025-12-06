@@ -55,10 +55,10 @@ router.get('/admin/all-materials', requireAdmin, async (req, res) => {
     const User = (await import('../models/User.js')).default;
     const enrichedMaterials = await Promise.all(
       materials.map(async (material) => {
-        const user = await User.findOne({ firebaseUid: material.uploadedBy }).select('name email displayName');
+        const user = await User.findOne({ uid: material.uploadedBy }).select('displayName email uid');
         return {
           ...material.toObject(),
-          uploaderName: user?.name || user?.displayName || 'Unknown User',
+          uploaderName: user?.displayName || 'Unknown User',
           uploaderEmail: user?.email || ''
         };
       })
