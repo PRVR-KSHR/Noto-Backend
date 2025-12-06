@@ -18,8 +18,8 @@ const fileSchema = new mongoose.Schema({
   
   // Storage metadata
   storage: {
-    provider: { type: String, enum: ['cloudinary', 'r2'], default: 'cloudinary' },
-    publicId: { type: String, required: true }, // Cloudinary public_id or R2 key
+    provider: { type: String, enum: ['cloudinary', 'r2', 'filen'], default: 'cloudinary' },
+    publicId: { type: String, required: true }, // Cloudinary public_id, R2 key, or Filen UUID
   },
   
   category: {

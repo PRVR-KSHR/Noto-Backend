@@ -3,6 +3,7 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import logger from '../utils/logger.js';
+import filenService from './filenService.js';
 
 // Initialize storage providers
 let cloudinaryConfigured = false;
@@ -38,6 +39,8 @@ const configureR2 = () => {
 export const uploadFile = async (file, folder = 'uploads') => {
   const provider = process.env.STORAGE_PROVIDER || 'cloudinary';
   switch (provider) {
+    case 'filen':
+      return await uploadToFilen(file, folder);
     case 'cloudinary':
       return await uploadToCloudinary(file, folder);
     case 'r2':
@@ -48,6 +51,20 @@ export const uploadFile = async (file, folder = 'uploads') => {
 };
 
 // ✅ FIXED: Cloudinary upload with proper extension handling
+const uploadToFilen = async (file, folder) => {
+  try {
+    const result = await filenService.uploadFile(file, folder);
+    
+    return {
+      fileUrl: result.fileUrl,
+      publicId: result.publicId,
+      provider: 'filen'
+    };
+  } catch (error) {
+    throw new Error('Filen upload failed: ' + error.message);
+  }
+};
+
 const uploadToCloudinary = async (file, folder) => {
   try {
     configureCloudinary();
@@ -168,12 +185,26 @@ const uploadToR2 = async (file, folder) => {
 export const deleteFile = async (publicId, provider = null) => {
   const storageProvider = provider || process.env.STORAGE_PROVIDER || 'cloudinary';
   switch (storageProvider) {
+    case 'filen':
+      return await deleteFromFilen(publicId);
     case 'cloudinary':
       return await deleteFromCloudinary(publicId);
     case 'r2':
       return await deleteFromR2(publicId);
     default:
       throw new Error('Invalid storage provider for deletion');
+  }
+};
+
+// ✅ NEW: Filen delete
+const deleteFromFilen = async (fileUUID) => {
+  try {
+    await filenService.deleteFile(fileUUID);
+    return { success: true };
+  } catch (error) {
+    logger.error('❌ Filen delete error:', error);
+    // Don't throw - continue operation
+    return { success: false, error: error.message };
   }
 };
 
