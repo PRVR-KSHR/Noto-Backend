@@ -30,6 +30,7 @@ export const requireAdmin = async (req, res, next) => {
     }
 
   logger.info(`✅ Admin access granted for: ${userEmail}`);
+    req.isAdmin = true; // ✅ NEW: Set isAdmin flag
     next();
   } catch (error) {
   logger.error('❌ Admin auth error:', error);

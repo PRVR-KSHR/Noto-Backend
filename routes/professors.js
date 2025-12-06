@@ -125,8 +125,44 @@ router.get('/admin/all', requireAdmin, asyncHandler(async (req, res) => {
   });
 }));
 
+// ✅ NEW: Admin - Get professor verification stats
+router.get('/admin/stats', requireAdmin, asyncHandler(async (req, res) => {
+  const pending = await ProfessorValidator.countDocuments({ status: 'pending' });
+  const approved = await ProfessorValidator.countDocuments({ status: 'approved' });
+  const rejected = await ProfessorValidator.countDocuments({ status: 'rejected' });
+  const total = await ProfessorValidator.countDocuments();
+
+  res.json({
+    success: true,
+    stats: {
+      pending,
+      approved,
+      rejected,
+      total
+    }
+  });
+}));
+
+// ✅ NEW: Admin - Get statistics for professor applications
+router.get('/admin/stats', requireAdmin, asyncHandler(async (req, res) => {
+  const pending = await ProfessorValidator.countDocuments({ status: 'pending' });
+  const approved = await ProfessorValidator.countDocuments({ status: 'approved' });
+  const rejected = await ProfessorValidator.countDocuments({ status: 'rejected' });
+  const total = await ProfessorValidator.countDocuments();
+
+  res.json({
+    success: true,
+    stats: {
+      pending,
+      approved,
+      rejected,
+      total
+    }
+  });
+}));
+
 // ✅ NEW: Admin - Approve professor application
-router.post('/admin/:applicationId/approve', requireAdmin, asyncHandler(async (req, res) => {
+router.patch('/admin/:applicationId/approve', requireAdmin, asyncHandler(async (req, res) => {
   const application = await ProfessorValidator.findByIdAndUpdate(
     req.params.applicationId,
     {
@@ -152,7 +188,7 @@ router.post('/admin/:applicationId/approve', requireAdmin, asyncHandler(async (r
 }));
 
 // ✅ NEW: Admin - Reject professor application
-router.post('/admin/:applicationId/reject', requireAdmin, asyncHandler(async (req, res) => {
+router.patch('/admin/:applicationId/reject', requireAdmin, asyncHandler(async (req, res) => {
   const { reason } = req.body;
 
   const application = await ProfessorValidator.findByIdAndUpdate(
@@ -177,6 +213,26 @@ router.post('/admin/:applicationId/reject', requireAdmin, asyncHandler(async (re
     success: true,
     message: 'Professor application rejected',
     data: application
+  });
+}));
+
+// ✅ NEW: Admin - Delete/Revoke professor status
+router.delete('/admin/:applicationId/delete', requireAdmin, asyncHandler(async (req, res) => {
+  const { applicationId } = req.params;
+
+  const application = await ProfessorValidator.findByIdAndDelete(applicationId);
+
+  if (!application) {
+    return res.status(404).json({
+      success: false,
+      message: 'Professor application not found'
+    });
+  }
+
+  res.json({
+    success: true,
+    message: 'Professor status revoked successfully',
+    data: { deletedId: applicationId }
   });
 }));
 
