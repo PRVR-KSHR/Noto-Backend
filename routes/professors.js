@@ -61,9 +61,15 @@ router.get('/search', asyncHandler(async (req, res) => {
     status: 'approved'
   };
 
-  // Add college filter if provided
+  // Add college filter if provided - match first word or partial college name
   if (collegeName && collegeName.trim()) {
-    filter.collegeName = { $regex: collegeName.trim(), $options: 'i' };
+    const collegeWords = collegeName.trim().split(/\s+/);
+    const firstWord = collegeWords[0]; // Get first word (e.g., "Amity" from "Amity University Patna")
+    // Search for professors whose college name starts with or contains the first word
+    filter.$or = [
+      { collegeName: { $regex: `^${firstWord}`, $options: 'i' } }, // Starts with first word
+      { collegeName: { $regex: firstWord, $options: 'i' } } // Contains first word anywhere
+    ];
   }
 
   // Add subject filter if provided - search in subjects array
