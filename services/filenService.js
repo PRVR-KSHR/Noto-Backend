@@ -72,14 +72,18 @@ class FilenService {
 
     try {
       logger.info('🔐 Initializing Filen.io service...');
+      logger.info('📍 API Base:', FILEN_API_BASE);
 
       if (!this.email || !this.password) {
-        throw new Error('FILEN_EMAIL and FILEN_PASSWORD environment variables are required');
+        logger.error('❌ Missing credentials - FILEN_EMAIL:', !!this.email, 'FILEN_PASSWORD:', !!this.password);
+        throw new Error('FILEN_EMAIL and FILEN_PASSWORD environment variables are required. Check Render dashboard environment variables.');
       }
 
       logger.info('📧 Filen email:', this.email.substring(0, 5) + '***');
+      logger.info('🔑 Filen password set:', !!this.password);
 
       // Use retry logic for login
+      logger.info('🔄 Attempting Filen login...');
       const response = await this._retryRequest(() =>
         this.axiosInstance.post(`${FILEN_API_BASE}/v3/auth/login`, {
           email: this.email,
@@ -88,6 +92,7 @@ class FilenService {
       );
 
       if (!response.data.status) {
+        logger.error('❌ Filen API returned error:', response.data.message);
         throw new Error(`Filen login failed: ${response.data.message}`);
       }
 
@@ -95,9 +100,23 @@ class FilenService {
       this.masterKeys = response.data.data.masterKeys;
       this.isInitialized = true;
 
-      logger.info('✅ Filen.io initialized successfully');
+      logger.info('✅ Filen.io initialized successfully with auth token');
     } catch (error) {
-      logger.error('❌ Filen initialization failed:', error.message);
+      logger.error('❌ Filen initialization failed:');
+      logger.error('   Error message:', error.message);
+      logger.error('   Error code:', error.code);
+      logger.error('   Error type:', error.name);
+      
+      if (error.code === 'ENOTFOUND') {
+        logger.error('   ⚠️ DNS Resolution failed - api.filen.io cannot be reached');
+        logger.error('   This might be a network issue on the hosting provider');
+      } else if (error.code === 'ECONNREFUSED') {
+        logger.error('   ⚠️ Connection refused - check if Filen API is available');
+      } else if (error.response) {
+        logger.error('   Response status:', error.response.status);
+        logger.error('   Response data:', error.response.data);
+      }
+      
       this.isInitialized = false;
       this.authToken = null;
       throw new Error('Filen initialization failed: ' + error.message);

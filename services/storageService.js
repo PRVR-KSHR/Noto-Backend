@@ -25,9 +25,20 @@ const configureR2 = () => {
 export const uploadFile = async (file, folder = 'uploads') => {
   const provider = process.env.STORAGE_PROVIDER || 'filen';
   
+  logger.info(`📦 Uploading with provider: ${provider}`);
+  
   switch (provider) {
     case 'filen':
-      return await uploadToFilen(file, folder);
+      try {
+        return await uploadToFilen(file, folder);
+      } catch (filenError) {
+        logger.error('❌ Filen upload failed, attempting R2 fallback:', filenError.message);
+        // Fallback to R2 if Filen fails
+        if (process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY) {
+          return await uploadToR2(file, folder);
+        }
+        throw filenError; // Re-throw if no fallback available
+      }
     case 'r2':
       return await uploadToR2(file, folder);
     default:
@@ -38,6 +49,17 @@ export const uploadFile = async (file, folder = 'uploads') => {
 // Filen.io upload
 const uploadToFilen = async (file, folder) => {
   try {
+    // Check if credentials are set
+    if (!process.env.FILEN_EMAIL || !process.env.FILEN_PASSWORD) {
+      const missingVars = [];
+      if (!process.env.FILEN_EMAIL) missingVars.push('FILEN_EMAIL');
+      if (!process.env.FILEN_PASSWORD) missingVars.push('FILEN_PASSWORD');
+      
+      const errorMsg = `Missing Filen credentials in environment: ${missingVars.join(', ')}. Set these in Render dashboard.`;
+      logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
     const result = await filenService.uploadFile(file, folder);
     
     return {
