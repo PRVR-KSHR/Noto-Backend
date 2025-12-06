@@ -2,14 +2,14 @@ import express from 'express';
 import { authenticateUser } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/adminAuth.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import ProfessorApplication from '../models/ProfessorApplication.js';
+import ProfessorValidator from '../models/ProfessorValidator.js';
 import File from '../models/File.js';
 
 const router = express.Router();
 
 // Get my professor application
 router.get('/my-application', authenticateUser, asyncHandler(async (req, res) => {
-  const application = await ProfessorApplication.findOne({ 
+  const application = await ProfessorValidator.findOne({ 
     userId: req.user.uid 
   }).sort({ createdAt: -1 });
 
@@ -21,7 +21,7 @@ router.get('/my-application', authenticateUser, asyncHandler(async (req, res) =>
 
 // Apply for professor validator role
 router.post('/apply', authenticateUser, asyncHandler(async (req, res) => {
-  const existingApplication = await ProfessorApplication.findOne({
+  const existingApplication = await ProfessorValidator.findOne({
     userId: req.user.uid,
     status: { $in: ['pending', 'approved'] }
   });
@@ -33,7 +33,7 @@ router.post('/apply', authenticateUser, asyncHandler(async (req, res) => {
     });
   }
 
-  const application = await ProfessorApplication.create({
+  const application = await ProfessorValidator.create({
     userId: req.user.uid,
     ...req.body
   });
@@ -60,10 +60,10 @@ router.get('/admin/all', requireAdmin, asyncHandler(async (req, res) => {
   }
 
   // Get total count for pagination
-  const total = await ProfessorApplication.countDocuments(filter);
+  const total = await ProfessorValidator.countDocuments(filter);
 
   // Get filtered applications with user details
-  const applications = await ProfessorApplication.find(filter)
+  const applications = await ProfessorValidator.find(filter)
     .populate('userId', 'name email photoURL')
     .sort({ createdAt: -1 })
     .skip(skip)
@@ -82,7 +82,7 @@ router.get('/admin/all', requireAdmin, asyncHandler(async (req, res) => {
 
 // ✅ NEW: Admin - Approve professor application
 router.post('/admin/:applicationId/approve', requireAdmin, asyncHandler(async (req, res) => {
-  const application = await ProfessorApplication.findByIdAndUpdate(
+  const application = await ProfessorValidator.findByIdAndUpdate(
     req.params.applicationId,
     {
       status: 'approved',
@@ -110,7 +110,7 @@ router.post('/admin/:applicationId/approve', requireAdmin, asyncHandler(async (r
 router.post('/admin/:applicationId/reject', requireAdmin, asyncHandler(async (req, res) => {
   const { reason } = req.body;
 
-  const application = await ProfessorApplication.findByIdAndUpdate(
+  const application = await ProfessorValidator.findByIdAndUpdate(
     req.params.applicationId,
     {
       status: 'rejected',
