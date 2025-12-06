@@ -44,6 +44,51 @@ router.post('/apply', authenticateUser, asyncHandler(async (req, res) => {
   });
 }));
 
+// ✅ NEW: Search approved professors by name, college, and subject
+router.get('/search', asyncHandler(async (req, res) => {
+  const { query, collegeName, subject } = req.query;
+
+  // Validation: at least one search parameter required
+  if (!query || !query.trim()) {
+    return res.json({
+      success: true,
+      professors: []
+    });
+  }
+
+  // Build filter for approved professors only
+  let filter = {
+    status: 'approved'
+  };
+
+  // Add college filter if provided
+  if (collegeName && collegeName.trim()) {
+    filter.collegeName = { $regex: collegeName.trim(), $options: 'i' };
+  }
+
+  // Add subject filter if provided - search in subjects array
+  if (subject && subject.trim()) {
+    filter.subjects = { $elemMatch: { $regex: subject.trim(), $options: 'i' } };
+  }
+
+  // Search for professors by name, email, or professorId matching query
+  const professors = await ProfessorValidator.find({
+    ...filter,
+    $or: [
+      { fullName: { $regex: query.trim(), $options: 'i' } },
+      { email: { $regex: query.trim(), $options: 'i' } },
+      { professorId: { $regex: query.trim(), $options: 'i' } }
+    ]
+  })
+    .select('_id userId fullName email collegeName professorId subjects')
+    .limit(10);
+
+  res.json({
+    success: true,
+    professors
+  });
+}));
+
 // ✅ NEW: Admin - Get all professor applications with filters
 router.get('/admin/all', requireAdmin, asyncHandler(async (req, res) => {
   const { status = 'all', collegeName = 'all', page = 1 } = req.query;
